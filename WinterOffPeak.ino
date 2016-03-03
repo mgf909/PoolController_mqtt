@@ -1,11 +1,11 @@
 
-boolean IsItWinter() {
+boolean IsItWinter() {   //Used to prevent the pool solar pumps when its no longer swimming season.
 	if (
 	(currentMonth == 4 ) or
 	(currentMonth == 5 ) or
 	(currentMonth == 6 ) or
 	(currentMonth == 7 ) or
-	(currentMonth == 8) ){ ///change back to 8 when finished testing
+	(currentMonth == 8) ){ 
 		return true;
 	}
 	else {
@@ -13,7 +13,7 @@ boolean IsItWinter() {
 	}
 }
 
-boolean IsOffPeak() {
+boolean IsOffPeak() {  //used to run the pump in off-peak hours to save on $$
 	if (
 	(currentHour == 23 ) or
 	(currentHour == 00 ) or

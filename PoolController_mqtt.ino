@@ -218,6 +218,7 @@ int lastStatusCode; //used for sending status to Vera
 #define hcl_CHILD_ID 5		//id of the Acid Pump Runtime child
 #define Pump_CHILD_ID 6		//id of the Pump Overide switch child
 #define Light_CHILD_ID 7		//id of the Pool Light switch child
+#define Controller_CHILD_ID 8	//id for Controller - for sending status.
 
 // Initialize temperature message
 MyMessage roofTempmsg(Roof_CHILD_ID, V_TEMP);
@@ -227,10 +228,11 @@ MyMessage prtValuemsg(prt_CHILD_ID, V_TEMP);
 MyMessage hclValuemsg(hcl_CHILD_ID, V_TEMP);
 MyMessage PumpCntrlmsg(Pump_CHILD_ID, V_STATUS);
 MyMessage LightCntrlmsg(Light_CHILD_ID, V_STATUS);
+MyMessage ControlModemsg(Controller_CHILD_ID, V_TEXT);
 
 
 unsigned long lastConnectionTime = 0;          // last time you connected to the server, in milliseconds
-const unsigned long postingInterval = 20000;  // 20s delay between updates to Vera
+const unsigned long postingInterval = 30000;  // 30s delay between updates to Vera
 
 
 
@@ -248,6 +250,7 @@ void presentation() {
 	present(hcl_CHILD_ID, S_TEMP);
 	present(Pump_CHILD_ID, S_LIGHT);
 	present(Light_CHILD_ID, S_LIGHT);
+	present(Controller_CHILD_ID, S_INFO);
 
 
 
@@ -302,37 +305,28 @@ void loop(void)
 { 
    
   loopstartmillis = millis(); //start a counter for the pump runtimes  
-    veraLoopCount ++; //this counter for requesting data only periodically
+  veraLoopCount ++; //this counter for requesting data only periodically
   
-  
- 
-  //Request and Send Data from Vera
+   
+  //Send data to controller periodically in case it was missed/or they are out of sync
  if (veraLoopCount == veraRequestFreq){
-		
-		//Serial.println("Requesting data for  "+Pool_CHILD_ID);
-	 	//request(Pool_CHILD_ID,V_VAR1); // ask vera for pool set temp
-		//gw.request(pH_CHILD_ID,V_VAR1); // ask vera for desired pH level
-		//gw.request(pH_CHILD_ID,V_VAR2); // ask vera for desired HCL runtime.
-		if (filterpumpRunning) {
-			send(PumpCntrlmsg.set(1));  // Send pump status to Vera in case it was missed or vera restarted
-		}
-		else {
-			send(PumpCntrlmsg.set(0));  // Send pump status to Vera
-		}
-	veraLoopCount = 0;
+		send(PumpCntrlmsg.set(filterpumpRunning == true ? 1 : 0));  // Send pump status to Vera
+
+	 veraLoopCount = 0; //reset the counter
   }
 
 //Send Status to MQTT
 if (lastStatusCode != statuscode){
-	sendSketchInfo(sketch_name, (strStatus[statuscode])); //this is actually wrong. Should send the statuscode as a V_TEXT
+	send(ControlModemsg.set(strStatus[statuscode]));  // Send pump status to Vera
 lastStatusCode = statuscode;
 }
 
 
+
+
 //Sync the time with Vera - typically for DST changes.
- if ((currentDay == 0) && (currentHour == 3) && (currentMinute == 01) && (currentSec == 5)) { // Sync time on Sunday at 3:01:05 from Vera
-   Serial.println("Its time to sync with Vera");
-	requestTime();
+ if ((currentDay == 0) && (currentHour == 3) && (currentMinute == 01) && (currentSec == 5)) { // Sync time on Sunday at 3:01:05 from Vera - DST times change on Sundays 2/3AM
+   requestTime();
  }
 
 
@@ -340,7 +334,9 @@ lastStatusCode = statuscode;
 
 // Get temperature values
   dallasSensors.requestTemperatures();
+  //if (filterpumpRunning){
   float poolTemp = dallasSensors.getTempC(poolThermometer); //should only really do this when the pump is runnign as the pipes can be different temp to the pool. Would need to set inital value and turn on pump if its set..
+  //}
   float roofTemp = dallasSensors.getTempC(roofThermometer);
 
 
@@ -530,8 +526,8 @@ lastStatusCode = statuscode;
     //this will occur if poolTemp>maxpooltemp and roofTemp>pool+differential
     //    stopFilterPump();
     //    stopSolarPump();
-    //    statuscode = 7; // ERR-SHIT
-    statuscode = 4; // heuristic
+        statuscode = 7; // ERR-SHIT
+    //statuscode = 4; // heuristic
   }
 
 

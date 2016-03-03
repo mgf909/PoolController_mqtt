@@ -1,3 +1,32 @@
+
+void isrRemote() //interrupt routine for remote button press
+{
+	//debounce the button
+	static unsigned long lastDebounceTime;
+	if ((millis() - lastDebounceTime) > 200) {   //the delay (debounce) time, button is completley closed.
+		lastDebounceTime = millis();
+		//Button has been pressed, so toggle the remote status
+		remoteIsOn = !remoteIsOn;
+		lastPumpstop = 0L;			//reset the huristic timers for pump restart so remote functions dont have delays.
+		lastPumpstart = 60000L;
+	}
+
+}
+
+boolean IsRemoteOnOff()
+{
+	if (remoteIsOn)
+	{
+		return true;  //remote is active
+	}
+	else
+	{
+		return false; //remote is not active
+	}
+
+}
+
+
 //control functions
 void startAcidPump() {
 	// this should only run if filter pump is running
