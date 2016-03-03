@@ -146,11 +146,9 @@ int veraRequestFreq = 60; //how many cycles to ask vera for data
 #define WINTERMAXPUMPRUNTIME 14400 // 4 Hours only during winter. - Winter could also be enabled when pooltemp drops to 18deg
 // Set Temp Sensor addresses
 DeviceAddress roofTsensor = { 
-  //0x28, 0x76, 0x30, 0xE3, 0x02, 0x00, 0x00, 0x3E };
-0x28, 0x61, 0x17, 0x1B, 0x04, 0x00, 0x00, 0xF5 }; //dev
+  0x28, 0x76, 0x30, 0xE3, 0x02, 0x00, 0x00, 0x3E };
 DeviceAddress poolTsensor = { 
-  //0x28, 0xBE, 0xFF, 0x0C, 0x02, 0x00, 0x00, 0x9E };
-0x28, 0xEB, 0x68, 0xE3, 0x02, 0x00, 0x00, 0x6E }; //dev
+ 0x28, 0xBE, 0xFF, 0x0C, 0x02, 0x00, 0x00, 0x9E };
 #endif
 
 
@@ -222,10 +220,12 @@ int lastStatusCode; //used for sending status to Vera
 #define Light_CHILD_ID 7		//id of the Pool Light switch child
 #define Controller_CHILD_ID 8	//id for Controller - for sending status.
 
-// Initialize temperature message
+// Initialise messages
 MyMessage roofTempmsg(Roof_CHILD_ID, V_TEMP);
 MyMessage poolTempmsg(Pool_CHILD_ID, V_TEMP);
+MyMessage desiredPoolTempmsg(Pool_CHILD_ID, V_VAR1);
 MyMessage pHValuemsg(pH_CHILD_ID, V_TEMP);
+MyMessage desiredpHmsg(pH_CHILD_ID, V_VAR1);
 MyMessage prtValuemsg(prt_CHILD_ID, V_TEMP);
 MyMessage hclValuemsg(hcl_CHILD_ID, V_TEMP);
 MyMessage PumpCntrlmsg(Pump_CHILD_ID, V_STATUS);
@@ -244,7 +244,7 @@ void presentation() {
 
 	sendSketchInfo(sketch_name, sketch_ver);
 
-	//Describe the device type...probably want this to be HVAC??
+	//Describe the device type...
 	present(Roof_CHILD_ID, S_TEMP);
 	present(Pool_CHILD_ID, S_TEMP);
 	present(pH_CHILD_ID, S_TEMP);
@@ -313,8 +313,10 @@ void loop(void)
   //Send data to controller periodically in case it was missed/or they are out of sync
  if (veraLoopCount == veraRequestFreq){
 		send(PumpCntrlmsg.set(filterpumpRunning == true ? 1 : 0));  // Send pump status to Vera
-	//	send(pHValuemsg.set(acidpumpOnTime));  // Send back the current set HCL pump desired runtime
-		
+		send(desiredpHmsg.set(acidpumpOnTime));  // Send back the current set HCL pump desired runtime
+		send(desiredPoolTempmsg.set(desiredPoolTemp));  // Send back the current set HCL pump desired runtime
+	//	send(LightCntrlmsg.set(dsssss); //send the current status of the light
+
 
 
 	 veraLoopCount = 0; //reset the counter
@@ -339,9 +341,7 @@ lastStatusCode = statuscode;
 
 // Get temperature values
   dallasSensors.requestTemperatures();
-  //if (filterpumpRunning){
   float poolTemp = dallasSensors.getTempC(poolTsensor); //should only really do this when the pump is runnign as the pipes can be different temp to the pool. Would need to set inital value and turn on pump if its set..
-  //}
   float roofTemp = dallasSensors.getTempC(roofTsensor);
 
 
@@ -531,8 +531,8 @@ lastStatusCode = statuscode;
     //this will occur if poolTemp>maxpooltemp and roofTemp>pool+differential
     //    stopFilterPump();
     //    stopSolarPump();
-        statuscode = 7; // ERR-SHIT
-    //statuscode = 4; // heuristic
+    //    statuscode = 7; // ERR-SHIT
+    statuscode = 4; // heuristic
   }
 
 

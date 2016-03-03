@@ -49,6 +49,7 @@ void receive(const MyMessage &message) {
 			digitalWrite(lightPin, message.getBool()?1:0);
 			Serial.print("Pool Light change: ");
 			Serial.println(message.getBool());
+
 			}
 	
 //process messages for desired pool water temp.	
