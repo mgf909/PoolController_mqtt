@@ -1,31 +1,33 @@
 /*Greg's Pool Controller
+
 This controller is for my swimming pool.
+This is about the 5th version/rewrite of the code. It’s the first project I started on about 2009...and actually what introduced me to the wonderful world of Arduino.
+It’s a mess, I’ve borrowed code from all edges of the internet (thanks everyone!), its likely full of bugs and highly un-optimised....but it works well enough ;-)
 
 Operational Functions:
-Solar pool heating - this measures the roof and pool water temperature and if its swimming season and its hot enough then it will switch on the pumps and heat the pool
-The controller can also monitor the pH level and run a perilstatic pump to add HCL to the pool.
-It has a level of intelegance on when to operate the pumps and chlorinator so as to save power. During summer months the filter needs to operate for approx 8hrs a day
+Solar pool heating - this measures the roof and pool water temperature and if it’s swimming season and its hot enough then it will switch on the pumps and heat the pool
+The controller can also monitor the pH level and run a peristaltic pump to add HCL to the pool.
+It has a level of intelligence on when to operate the pumps and chlorinator so as to save power. During summer months the filter needs to operate for approx. 8hrs a day
 but in winter, just 4hrs is enough. So during summer, if the pool runs for 2hrs to heat the pool during the day, then it will wait until off peak power time begins, and run the remaining 6hrs then.
 During winter, it will only run the pumps during off peak hours.
 There is a button on the controller to allow the pump to be stopped/started if required - to backwash for instance.
 
-This version talks MQTT allowing it to be controlled from Openhab. It reports back the status, temperatures,pH level, pump runtimes as well as being able to be controlled via MQTT.
-Control functions are pump start/stop ( like the button allows), set the desired water temperature, how long in minutes the acid feeder should run each hour(as needed to keep pH in check)
-Whilst the arduino has an accurate DS1307 RTC, it will also pull the time from Openhab - this function was initally only so as to adjust for when daylight savings started/stopped...but i sync it more frequently now.
-There is a 20x4 LCD display to show Time, Status, Roof/Water temps, pH as well as runtimes for the filterpump and acid pump.
-For communications to MQTT, im now using the excellent MySensors system ( mysensors.org ), i was using an ethernet arduino and an old wifi router in bridge mode, but the bridge was unreliable.
-MySensors has been rock solid on this for 18months or so. There are references to Vera - where i was using mySensors to interface it to Vera, but no more...now MQTT and Openhab.
+This version talks MQTT allowing it to be controlled from Openhab. It reports back the status, temperatures, pH level, pump runtimes as well as being able to be controlled via MQTT.
+Control functions are pump start/stop (like the button allows), set the desired water temperature, how long in minutes the acid feeder should run each hour (as needed to keep pH in check)
+Whilst the Arduino has an accurate DS1307 RTC, it will also pull the time from Openhab - this function was initially only so as to adjust for when daylight savings started/stopped...but I sync it more frequently now.
+There is a 20x4 LCD display to show Time, Status, Roof/Water temps, pH as well as runtimes for the filter pump and acid pump.
+For communications to MQTT, I’m now using the excellent MySensors system ( mysensors.org ), I was using an ethernet Arduino and an old Wi-Fi router in bridge mode, but the bridge was unreliable.
+MySensors has been rock solid on this for 18months or so. There are references to Vera - where I was using MySensors to interface it to Vera, but no more...now MQTT and Openhab.
 
 Hardware:
-Arduino Nano running on Optiboot - at some point i was reallllly tight for flash!
-This sits on a Nano IO shield - makes radio and i/o connections really easy.
+Arduino Nano running on Optiboot - at some point I was reallllly tight for flash!
+This sits on a Nano IO shield - makes radio and I/O connections really easy.
 There is a RTC and LCD on the I2C bus.
 Manual mode button
-Its got a piezo beeper to alert when its in manual mode - so i dont forget.
-Its got 5 SSR relays - filter pump, chlorinatior, solar pump, acid pump and one for the pool lights.
+It’s got a piezo beeper to alert when it’s in manual mode - so I don’t forget.
+It’s got 5 SSR relays - filter pump, chlorinator, solar pump, acid pump and one for the pool lights.
 
-This is about the 5th version/rewrite of the code. Its the first project i started on about 2009...and actually what introduced me to the wonderful world of Arduino.
-Its a mess, ive borrowed code from all edges of the internet (thanks everyone!), its likely full of bugs and highly unoptimised....but it works well enough ;-)
+
 
 
 */
@@ -126,10 +128,10 @@ int acidpumpOnTime = 5; //default minutes on the hour to run the acid feeder for
 int veraRequestFreq = 30; //how many cycles to ask vera for data
 #define SUMMERMAXPUMPRUNTIME 25000  // 28800 seconds = 8 hours, 36000 = 10 HOURS
 #define WINTERMAXPUMPRUNTIME 14400 // 4 Hours only during winter. - Winter could also be enabled when pooltemp drops to 18deg
-// Set Temp Sensor addresses
-DeviceAddress roofThermometer = { 
+// Set Temp Sensor addresses - i use the ds18b example sketch to identify the addresses.
+DeviceAddress roofTsensor = { 
   0x28, 0x61, 0x17, 0x1B, 0x04, 0x00, 0x00, 0xF5 };
-DeviceAddress poolThermometer = { 
+DeviceAddress poolTsensor = { 
   0x28, 0xEB, 0x68, 0xE3, 0x02, 0x00, 0x00, 0x6E };
 #endif
 
@@ -143,10 +145,10 @@ int veraRequestFreq = 60; //how many cycles to ask vera for data
 #define SUMMERMAXPUMPRUNTIME 28800  // 28800 seconds = 8 hours, 36000 = 10 HOURS
 #define WINTERMAXPUMPRUNTIME 14400 // 4 Hours only during winter. - Winter could also be enabled when pooltemp drops to 18deg
 // Set Temp Sensor addresses
-DeviceAddress roofThermometer = { 
+DeviceAddress roofTsensor = { 
   //0x28, 0x76, 0x30, 0xE3, 0x02, 0x00, 0x00, 0x3E };
 0x28, 0x61, 0x17, 0x1B, 0x04, 0x00, 0x00, 0xF5 }; //dev
-DeviceAddress poolThermometer = { 
+DeviceAddress poolTsensor = { 
   //0x28, 0xBE, 0xFF, 0x0C, 0x02, 0x00, 0x00, 0x9E };
 0x28, 0xEB, 0x68, 0xE3, 0x02, 0x00, 0x00, 0x6E }; //dev
 #endif
@@ -286,12 +288,12 @@ void setup(void)
 
   // Start up the Dallas Temp library and set the resolution to 9 bit
 	dallasSensors.begin();
-	dallasSensors.setResolution(poolThermometer, 12);
-	dallasSensors.setResolution(roofThermometer, 12);
+	dallasSensors.setResolution(poolTsensor, 12);
+	dallasSensors.setResolution(roofTsensor, 12);
 
 	// Get temperature values
 	dallasSensors.requestTemperatures();
-	float init_poolTemp = dallasSensors.getTempC(poolThermometer);
+	float init_poolTemp = dallasSensors.getTempC(poolTsensor);
 	Serial.println(init_poolTemp);
 
 //End of setup
@@ -311,6 +313,9 @@ void loop(void)
   //Send data to controller periodically in case it was missed/or they are out of sync
  if (veraLoopCount == veraRequestFreq){
 		send(PumpCntrlmsg.set(filterpumpRunning == true ? 1 : 0));  // Send pump status to Vera
+	//	send(pHValuemsg.set(acidpumpOnTime));  // Send back the current set HCL pump desired runtime
+		
+
 
 	 veraLoopCount = 0; //reset the counter
   }
@@ -335,9 +340,9 @@ lastStatusCode = statuscode;
 // Get temperature values
   dallasSensors.requestTemperatures();
   //if (filterpumpRunning){
-  float poolTemp = dallasSensors.getTempC(poolThermometer); //should only really do this when the pump is runnign as the pipes can be different temp to the pool. Would need to set inital value and turn on pump if its set..
+  float poolTemp = dallasSensors.getTempC(poolTsensor); //should only really do this when the pump is runnign as the pipes can be different temp to the pool. Would need to set inital value and turn on pump if its set..
   //}
-  float roofTemp = dallasSensors.getTempC(roofThermometer);
+  float roofTemp = dallasSensors.getTempC(roofTsensor);
 
 
 //Send metrics to MQTT
