@@ -25,3 +25,5 @@ Manual mode button
 It’s got a piezo beeper to alert when it’s in manual mode - so I don’t forget.
 It’s got 5 SSR relays - filter pump, chlorinator, solar pump, acid pump and one for the pool lights.
 
+Some photos are here: both current and previous versions..
+https://goo.gl/photos/benm5vkpxbZjHEAW7
